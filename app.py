@@ -4,7 +4,6 @@ import fitz  # PyMuPDF
 
 # Load and parse PDFs
 @st.cache_data
-
 def load_pdf_text(file_path):
     doc = fitz.open(file_path)
     text = ""
@@ -28,28 +27,18 @@ st.title("Tank Cleaning Q&A App")
 query = st.text_input("Ask a question about tank cleaning procedures:")
 
 if query:
-    
-combined_text = hm50_text + "\n" + tankcleaning_text
+    combined_text = hm50_text + "\n" + tankcleaning_text
 
     if cargo_type:
-        combined_text = "
-".join([line for line in combined_text.split("
-") if cargo_type.lower() in line.lower()])
+        combined_text = "\n".join([line for line in combined_text.split("\n") if cargo_type.lower() in line.lower()])
     if cleaning_method:
-        combined_text = "
-".join([line for line in combined_text.split("
-") if cleaning_method.lower() in line.lower()])
+        combined_text = "\n".join([line for line in combined_text.split("\n") if cleaning_method.lower() in line.lower()])
     if matrix_used:
-        combined_text = "
-".join([line for line in combined_text.split("
-") if matrix_used.lower() in line.lower()])
+        combined_text = "\n".join([line for line in combined_text.split("\n") if matrix_used.lower() in line.lower()])
     if inspection_result:
-        combined_text = "
-".join([line for line in combined_text.split("
-") if inspection_result.lower() in line.lower()])
+        combined_text = "\n".join([line for line in combined_text.split("\n") if inspection_result.lower() in line.lower()])
 
-    results = [line for line in combined_text.split("
-") if query.lower() in line.lower()]
+    results = [line for line in combined_text.split("\n") if query.lower() in line.lower()]
     st.subheader("Results")
     for res in results:
         st.write(res)
