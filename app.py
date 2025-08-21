@@ -30,7 +30,7 @@ query = st.text_input("Ask a question about tank cleaning procedures:")
 if query:
     
 combined_text = hm50_text + "\n" + tankcleaning_text
-" + tankcleaning_text
+
     if cargo_type:
         combined_text = "
 ".join([line for line in combined_text.split("
