@@ -28,7 +28,8 @@ st.title("Tank Cleaning Q&A App")
 query = st.text_input("Ask a question about tank cleaning procedures:")
 
 if query:
-    combined_text = hm50_text + "
+    
+combined_text = hm50_text + "\n" + tankcleaning_text
 " + tankcleaning_text
     if cargo_type:
         combined_text = "
