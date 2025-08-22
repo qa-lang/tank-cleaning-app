@@ -1,6 +1,7 @@
 
 import streamlit as st
 import fitz  # PyMuPDF
+from rapidfuzz import fuzz
 
 # Load and parse PDFs
 @st.cache_data
@@ -10,6 +11,15 @@ def load_pdf_text(file_path):
     for page in doc:
         text += page.get_text()
     return text
+
+# Fuzzy search function
+def fuzzy_search(text, query, threshold=80):
+    lines = text.split("\n")
+    return [line for line in lines if fuzz.partial_ratio(query.lower(), line.lower()) > threshold]
+
+# Optional: Highlight query in results
+def highlight_query(text, query):
+    return text.replace(query, f"**{query}**")
 
 # Load documents
 hm50_text = load_pdf_text("HM50Guidelines-6th_Edition-unlocked 1.pdf")
@@ -29,6 +39,7 @@ query = st.text_input("Ask a question about tank cleaning procedures:")
 if query:
     combined_text = hm50_text + "\n" + tankcleaning_text
 
+    # Apply filters
     if cargo_type:
         combined_text = "\n".join([line for line in combined_text.split("\n") if cargo_type.lower() in line.lower()])
     if cleaning_method:
@@ -38,7 +49,13 @@ if query:
     if inspection_result:
         combined_text = "\n".join([line for line in combined_text.split("\n") if inspection_result.lower() in line.lower()])
 
-    results = [line for line in combined_text.split("\n") if query.lower() in line.lower()]
+    # Fuzzy search
+    results = fuzzy_search(combined_text, query)
+
+    # Display results
     st.subheader("Results")
-    for res in results:
-        st.write(res)
+    if results:
+        for res in results:
+            st.markdown(highlight_query(res, query))
+    else:
+        st.write("No matching results found.")
