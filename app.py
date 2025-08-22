@@ -1,7 +1,9 @@
 
 import streamlit as st
 import fitz  # PyMuPDF
-from rapidfuzz import fuzz
+import numpy as np
+import faiss
+from sentence_transformers import SentenceTransformer
 
 # Load and parse PDFs
 @st.cache_data
@@ -12,19 +14,35 @@ def load_pdf_text(file_path):
         text += page.get_text()
     return text
 
-# Fuzzy search function
-def fuzzy_search(text, query, threshold=80):
-    lines = text.split("\n")
-    return [line for line in lines if fuzz.partial_ratio(query.lower(), line.lower()) > threshold]
+# Split text into chunks
+def split_text(text, chunk_size=500):
+    words = text.split()
+    return [" ".join(words[i:i+chunk_size]) for i in range(0, len(words), chunk_size)]
 
-# Optional: Highlight query in results
-def highlight_query(text, query):
-    return text.replace(query, f"**{query}**")
+# Embed text chunks
+@st.cache_resource
+def embed_chunks(chunks, model_name='all-MiniLM-L6-v2'):
+    model = SentenceTransformer(model_name)
+    embeddings = model.encode(chunks, show_progress_bar=True)
+    return model, embeddings
+
+# Build FAISS index
+def build_faiss_index(embeddings):
+    dim = embeddings.shape[1]
+    index = faiss.IndexFlatL2(dim)
+    index.add(embeddings)
+    return index
+
+# Search FAISS index
+def search_index(query, model, index, chunks, top_k=5):
+    query_embedding = model.encode([query])
+    distances, indices = index.search(query_embedding, top_k)
+    return [chunks[i] for i in indices[0]]
 
 # Load documents
 hm50_text = load_pdf_text("HM50Guidelines-6th_Edition-unlocked 1.pdf")
 tankcleaning_text = load_pdf_text("Tankcleanig memos.pdf")
-
+combined_text = hm50_text + "\n" + tankcleaning_text
 # Sidebar filters
 st.sidebar.header("Filters")
 cargo_type = st.sidebar.text_input("Cargo Type")
@@ -32,30 +50,28 @@ cleaning_method = st.sidebar.text_input("Cleaning Method")
 matrix_used = st.sidebar.text_input("Matrix Used")
 inspection_result = st.sidebar.text_input("Inspection Result")
 
+# Apply filters
+filtered_text = combined_text
+if cargo_type:
+    filtered_text = "\n".join([line for line in filtered_text.split("\n") if cargo_type.lower() in line.lower()])
+if cleaning_method:
+    filtered_text = "\n".join([line for line in filtered_text.split("\n") if cleaning_method.lower() in line.lower()])
+if matrix_used:
+    filtered_text = "\n".join([line for line in filtered_text.split("\n") if matrix_used.lower() in line.lower()])
+if inspection_result:
+    filtered_text = "\n".join([line for line in filtered_text.split("\n") if inspection_result.lower() in line.lower()])
+
+# Split and embed
+chunks = split_text(filtered_text)
+model, embeddings = embed_chunks(chunks)
+index = build_faiss_index(np.array(embeddings))
+
 # Main interface
-st.title("Tank Cleaning Q&A App")
+st.title("Tank Cleaning Q&A App (Semantic Search)")
 query = st.text_input("Ask a question about tank cleaning procedures:")
 
 if query:
-    combined_text = hm50_text + "\n" + tankcleaning_text
-
-    # Apply filters
-    if cargo_type:
-        combined_text = "\n".join([line for line in combined_text.split("\n") if cargo_type.lower() in line.lower()])
-    if cleaning_method:
-        combined_text = "\n".join([line for line in combined_text.split("\n") if cleaning_method.lower() in line.lower()])
-    if matrix_used:
-        combined_text = "\n".join([line for line in combined_text.split("\n") if matrix_used.lower() in line.lower()])
-    if inspection_result:
-        combined_text = "\n".join([line for line in combined_text.split("\n") if inspection_result.lower() in line.lower()])
-
-    # Fuzzy search
-    results = fuzzy_search(combined_text, query)
-
-    # Display results
-    st.subheader("Results")
-    if results:
-        for res in results:
-            st.markdown(highlight_query(res, query))
-    else:
-        st.write("No matching results found.")
+    results = search_index(query, model, index, chunks)
+    st.subheader("Top Results")
+    for res in results:
+        st.write(res)
