@@ -1,3 +1,6 @@
 streamlit
 PyMuPDF
+sentence-transformers
+faiss-cpu
+numpy
 rapidfuzz
